@@ -3,8 +3,21 @@
  * Description: A basic game I created in 6 hours!
  */
 
+
+
 var gravity = 0.25;
 var level = 1;
+
+var platformSpeedIncrease = 0.25;
+var platformSpeed = 0.25;
+
+const canvas = document.createElement('canvas');
+
+canvas.id = 'game';
+
+document.body.appendChild(canvas);
+
+var mc = new Hammer(canvas);
 
 var config = {
     type: Phaser.AUTO,
@@ -17,6 +30,7 @@ var config = {
             gravity: { y: 1000 }
         }
     },
+    canvas: document.getElementById('game'),
     scene: {
         preload: preload,
         create: create,
@@ -49,34 +63,49 @@ function preload()
     console.debug("Game has finished loading");
 }
 
-function playerKeyboardInput(event)
+function playerFling(direction, player)
 {
-    var jumpSpeed = 540 * 1.25;
     var walkSpeed = 200;
 
+    if (direction)
+    {
+        if (!player.body.touching.down)
+        {
+            player.setVelocityX(walkSpeed * 2.5);
+            return;
+        }
+
+        player.setVelocityX(walkSpeed);
+    }
+
+    if (!direction)
+    {
+        if (!player.body.touching.down)
+        {
+            player.setVelocityX((walkSpeed * 2.5) * -1);
+            return;
+        }
+
+        player.setVelocityX(walkSpeed * -1);
+    }
+}
+
+function playerJump(player)
+{
+    var jumpSpeed = 540 * 1.25;
+
+    if (player.body.touching.down)
+        player.setVelocityY(jumpSpeed * -1);
+}
+
+function playerKeyboardInput(event)
+{
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.SPACE || event.keyCode === Phaser.Input.Keyboard.KeyCodes.J)
-        if (this.player.body.touching.down)
-                this.player.setVelocityY(jumpSpeed * -1);
+        playerJump(this.player);
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.D || event.keyCode === Phaser.Input.Keyboard.KeyCodes.RIGHT)
-    {
-        if (!this.player.body.touching.down)
-        {
-            this.player.setVelocityX(walkSpeed * 2.5);
-            return;
-        }
-
-        this.player.setVelocityX(walkSpeed);
-    }
+        playerFling(true, this.player);
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.A || event.keyCode === Phaser.Input.Keyboard.KeyCodes.LEFT)
-    {
-        if (!this.player.body.touching.down)
-        {
-            this.player.setVelocityX((walkSpeed * 2.5) * -1);
-            return;
-        }
-
-        this.player.setVelocityX(walkSpeed * -1);
-    }
+        playerFling(false, this.player);
 }
 
 function create()
@@ -102,8 +131,8 @@ function create()
     this.playerParticles = this.add.particles('player-particle');
 
     this.playerEmitter = this.playerParticles.createEmitter({
-        speed: 45,
-        scale: { start: 1, end: 0.5 },
+        speed: 25,
+        scale: { start: 1, end: 0 },
         blendMode: 'MIX'
     });
 
@@ -126,7 +155,9 @@ function create()
         enabled: true
     });
 
-    this.platformGroup.create(config.width / 2, config.height - 25, 'ground')
+    var ground = this.platformGroup.create(config.width / 2, config.height - 25, 'ground')
+
+    ground.isGround = true;
 
     var platformSide = false;
 
@@ -137,10 +168,17 @@ function create()
         platformSide = !platformSide;
 
         if (platformSide)
-            this.platformGroup.create(217 / 2, config.height - (gap * platformNumber), 'platform');
+        {
+            var platform = this.platformGroup.create(217 / 2, config.height - (gap * platformNumber), 'platform');
+            platform.side = platformSide;
+
+        }
 
         if (!platformSide)
-            this.platformGroup.create(config.width - (217 / 2), config.height - (gap * platformNumber) , 'platform');
+        {
+            var platform = this.platformGroup.create(config.width - (217 / 2), config.height - (gap * platformNumber) , 'platform');
+            platform.side = platformSide;
+        }
     }
 
     this.doorGroup = this.physics.add.group({
@@ -156,19 +194,65 @@ function create()
      * Level Text
      */
 
-    this.levelText = this.add.text(0, 0, 'Level: 1', { fontFamily: 'sans-serif', fontSize: 32, color: 'white'});
+    this.levelText = this.add.text(0, 0, 'Level: ' + level, { fontFamily: 'sans-serif', fontSize: 32, color: 'white'});
 
     this.physics.add.collider(this.player, this.platformGroup);
+
+    /*
+     * Mobile swipe controls
+     */
+
+    if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) )
+    {
+        var player = this.player;
+
+        mc.on("swipeup swipedown swipeleft swiperight tap", function(ev) {
+            if (ev.type == "swiperight")
+                playerFling(true, player);
+            if (ev.type == "swipeleft")
+                playerFling(false, player);
+            if (ev.type == "tap")
+                playerJump(player);
+            });
+    }
 }
 
 function update()
 {
-    this.levelText.setText('Level: ' + level);
+    var frame = this;
 
-    this.physics.collide(this.player, this.doorGroup, function (player){
-        player.x = 50;
-        player.y = config.height - (64 + 25);
-        player.setVelocity(0, 0);
+    frame.physics.collide(this.player, this.doorGroup, function (player) {
+        frame.player.x = 50;
+        frame.player.y = config.height - (64 + 25);
+        frame.player.setVelocity(0, 0);
         level++;
+
+        platformSpeed += platformSpeedIncrease;
+
+        frame.scene.restart()
     });
+
+    frame.platformGroup.children.each(function(platform)
+    {
+        var speed = platformSpeed + (platformSpeedIncrease * (level / 2));
+        if (platform.side && !platform.isGround)
+        {
+            if (platform.x + (217 / 2) + speed < config.width)
+            {
+                platform.x += speed;
+                return;
+            }
+            platform.side = !platform.side;
+        }
+        if (!platform.side && !platform.isGround)
+        {
+            if (platform.x - (217 / 2) + speed > 0)
+            {
+                platform.x -= speed;
+                return;
+            }
+
+            platform.side = !platform.side;
+        }
+    }, this)
 }
