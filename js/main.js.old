@@ -3,21 +3,11 @@
  * Description: A basic game I created in 6 hours!
  */
 
-
-
 var gravity = 0.25;
 var level = 1;
 
 var platformSpeedIncrease = 0.25;
 var platformSpeed = 0.25;
-
-const canvas = document.createElement('canvas');
-
-canvas.id = 'game';
-
-document.body.appendChild(canvas);
-
-var mc = new Hammer(canvas);
 
 var config = {
     type: Phaser.AUTO,
@@ -30,7 +20,6 @@ var config = {
             gravity: { y: 1000 }
         }
     },
-    canvas: document.getElementById('game'),
     scene: {
         preload: preload,
         create: create,
@@ -63,57 +52,54 @@ function preload()
     console.debug("Game has finished loading");
 }
 
-function playerFling(direction, player)
+function playerFling(direction, game)
 {
     var walkSpeed = 200;
 
     if (direction)
     {
-        if (!player.body.touching.down || isDoubleJumpAllowed)
+        if (!game.player.body.touching.down)
         {
-            player.setVelocityX(walkSpeed * 2.5);
+            game.player.setVelocityX(walkSpeed * 2.5);
             return;
         }
 
-        player.setVelocityX(walkSpeed);
+        game.player.setVelocityX(walkSpeed);
     }
 
     if (!direction)
     {
-        if (!player.body.touching.down || isDoubleJumpAllowed)
+        if (!game.player.body.touching.down)
         {
-            player.setVelocityX((walkSpeed * 2.5) * -1);
+            game.player.setVelocityX((walkSpeed * 2.5) * -1);
             return;
         }
 
-        player.setVelocityX(walkSpeed * -1);
+        game.player.setVelocityX(walkSpeed * -1);
     }
 }
 
-function playerJump(player)
+function playerJump(game)
 {
     var jumpSpeed = 540 * 1.25;
 
-    if (player.body.touching.down)
-        player.setVelocityY(jumpSpeed * -1);
-
-    if (isDoubleJumpAllowed && (score >= 1))
-        player.setVelocityY(jumpSpeed * -1);
+    if (game.player.body.touching.down)
+        game.player.setVelocityY(jumpSpeed * -1);
 }
 
 function playerKeyboardInput(event)
 {
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.SPACE || event.keyCode === Phaser.Input.Keyboard.KeyCodes.J)
-        playerJump(this.player);
+        playerJump(this);
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.D || event.keyCode === Phaser.Input.Keyboard.KeyCodes.RIGHT)
-        playerFling(true, this.player);
+        playerFling(true, this);
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.A || event.keyCode === Phaser.Input.Keyboard.KeyCodes.LEFT)
-        playerFling(false, this.player);
+        playerFling(false, this);
 }
 
 function create()
 {
-    this.input.keyboard.on('keyup', playerKeyboardInput, this);
+    this.input.keyboard.on('keydown', playerKeyboardInput, this);
 
     /*
      * Calculate Math
@@ -134,8 +120,8 @@ function create()
     this.playerParticles = this.add.particles('player-particle');
 
     this.playerEmitter = this.playerParticles.createEmitter({
-        speed: 25,
-        scale: { start: 1, end: 0 },
+        speed: 45,
+        scale: { start: 1, end: 0.5 },
         blendMode: 'MIX'
     });
 
@@ -205,24 +191,14 @@ function create()
      * Mobile swipe controls
      */
 
-    if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) )
-    {
-        var player = this.player;
 
-        mc.on('swipeup swipedown swipeleft swiperight tap', function(ev) {
-            if (ev.type == "swiperight")
-                playerFling(true, player);
-            if (ev.type == "swipeleft")
-                playerFling(false, player);
-            if (ev.type == "tap")
-                playerJump(player);
-            });
-    }
 }
 
 function update()
 {
     var frame = this;
+
+    //frame.levelText.setText('Level: ' + level);
 
     frame.physics.collide(this.player, this.doorGroup, function (player) {
         frame.player.x = 50;
@@ -232,22 +208,12 @@ function update()
 
         platformSpeed += platformSpeedIncrease;
 
-        if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) )
-            mc.off('swipeup swipedown swipeleft swiperight tap');
-
         frame.scene.restart()
     });
 
     frame.platformGroup.children.each(function(platform)
     {
-        var speed;
-        if (level < 13)
-            speed = platformSpeed + (platformSpeedIncrease * (level / 2));
-        if (level == 12 || level <= 25)
-            speed = platformSpeed + (platformSpeedIncrease * (12 / 2));
-        if (level > 25)
-            speed = platformSpeed + (platformSpeedIncrease * (13 / 2));
-
+        var speed = platformSpeed + (platformSpeedIncrease * (level / 2));
         if (platform.side && !platform.isGround)
         {
             if (platform.x + (217 / 2) + speed < config.width)

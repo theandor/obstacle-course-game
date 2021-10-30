@@ -69,7 +69,7 @@ function playerFling(direction, player)
 
     if (direction)
     {
-        if (!player.body.touching.down || isDoubleJumpAllowed)
+        if (!player.body.touching.down)
         {
             player.setVelocityX(walkSpeed * 2.5);
             return;
@@ -80,7 +80,7 @@ function playerFling(direction, player)
 
     if (!direction)
     {
-        if (!player.body.touching.down || isDoubleJumpAllowed)
+        if (!player.body.touching.down)
         {
             player.setVelocityX((walkSpeed * 2.5) * -1);
             return;
@@ -95,9 +95,6 @@ function playerJump(player)
     var jumpSpeed = 540 * 1.25;
 
     if (player.body.touching.down)
-        player.setVelocityY(jumpSpeed * -1);
-
-    if (isDoubleJumpAllowed && (score >= 1))
         player.setVelocityY(jumpSpeed * -1);
 }
 
@@ -243,10 +240,8 @@ function update()
         var speed;
         if (level < 13)
             speed = platformSpeed + (platformSpeedIncrease * (level / 2));
-        if (level == 12 || level <= 25)
+        if (level == 12)
             speed = platformSpeed + (platformSpeedIncrease * (12 / 2));
-        if (level > 25)
-            speed = platformSpeed + (platformSpeedIncrease * (13 / 2));
 
         if (platform.side && !platform.isGround)
         {
